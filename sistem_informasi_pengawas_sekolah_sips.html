@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIPS - Sistem Informasi Pengawas Sekolah (SD & SMP)</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & Babel CDNs -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Google Fonts (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* Sembunyikan elemen tertentu saat mencetak laporan */
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      .print-area {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      table {
+        page-break-inside: auto;
+      }
+      tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+      }
+    }
+    /* Efek scroll yang mulus */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- Area Root Tempat Aplikasi React Dimuat -->
+  <div id="root" class="flex-1 flex flex-col"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // --- DATA DEFAULT (MOCK DATA) SEBAGAI TEMPLATE AWAL ---
+    const defaultSdSchools = [
+      { 
+        id: "sd-1", 
+        nama: "SD Negeri 1 Palembang", 
+        status: "NEGERI", 
+        alamat: "Jl. Merdeka No. 10, Palembang", 
+        akreditasi: "A", 
+        npsn: "10234567", 
+        kepsek: "Hj. Sumarni, S.Pd.", 
+        hpKepsek: "08127345678", 
+        email: "sdn1plg@sch.id", 
+        murid: { L1: 25, P1: 22, L2: 24, P2: 26, L3: 21, P3: 25, L4: 28, P4: 20, L5: 22, P5: 23, L6: 29, P6: 21 }, 
+        rombel: [1, 1, 1, 1, 1, 1], 
+        guru: { pns: 8, nonAsn: 3, yayasan: 0, tendik: 2, kepsek: 1 } 
+      },
+      { 
+        id: "sd-2", 
+        nama: "SD Swasta IT Al-Azhar", 
+        status: "SWASTA", 
+        alamat: "Jl. Jenderal Sudirman No. 102, Palembang", 
+        akreditasi: "A", 
+        npsn: "10987654", 
+        kepsek: "H. Ahmad Fauzi, S.Th.I", 
+        hpKepsek: "08119876543", 
+        email: "info@alazhar-plg.sch.id", 
+        murid: { L1: 45, P1: 48, L2: 42, P2: 44, L3: 40, P3: 45, L4: 48, P4: 40, L5: 42, P5: 43, L6: 49, P6: 41 }, 
+        rombel: [2, 2, 2, 2, 2, 2], 
+        guru: { pns: 0, nonAsn: 2, yayasan: 15, tendik: 4, kepsek: 1 } 
+      }
+    ];
+
+    const defaultSmpSchools = [
+      { 
+        id: "smp-1", 
+        nama: "SMP Negeri 1 Palembang", 
+        status: "NEGERI", 
+        alamat: "Jl. Mayor Ruslan No. 5, Palembang", 
+        akreditasi: "A", 
+        npsn: "30104561", 
+        kepsek: "Drs. H. M. Yusuf, M.Si.", 
+        hpKepsek: "08136271923", 
+        email: "smpn1plg@sch.id", 
+        murid: { L7: 95, P7: 102, L8: 98, P8: 96, L9: 105, P9: 99 }, 
+        rombel: [3, 3, 3], 
+        guru: { pns: 18, nonAsn: 5, yayasan: 0, tendik: 3, kepsek: 1 } 
+      }
+    ];
+
+    const defaultVisits = [
+      { id: "v-1", namaSekolah: "SD Negeri 1 Palembang", jenjang: "SD", status: "NEGERI", checklist: [true, true, false, false, true, false, false, false, true, false, true, false] },
+      { id: "v-2", namaSekolah: "SD Swasta IT Al-Azhar", jenjang: "SD", status: "SWASTA", checklist: [true, false, true, false, true, false, true, false, true, false, true, false] },
+      { id: "v-3", namaSekolah: "SMP Negeri 1 Palembang", jenjang: "SMP", status: "NEGERI", checklist: [true, true, true, true, false, true, false, false, true, true, false, true] }
+    ];
+
+    const defaultPkks = [
+      { id: "p-1", sekolah: "SD Negeri 1 Palembang", indikator: "Aktif", observasi: "A", keterangan: "Sangat baik dalam manajemen pengelolaan administrasi sekolah." },
+      { id: "p-2", sekolah: "SMP Negeri 1 Palembang", indikator: "Aktif", observasi: "A", keterangan: "Implementasi Kurikulum Merdeka terlaksana secara menyeluruh." }
+    ];
+
+    const defaultReflections = [
+      { id: "r-1", namaSekolah: "SD Negeri 1 Palembang", pertemuan: 1, tanggal: "2026-01-15", deskripsi: "Refleksi awal peningkatan literasi dasar pada murid kelas rendah.", status: "Aktif" },
+      { id: "r-2", namaSekolah: "SMP Negeri 1 Palembang", pertemuan: 2, tanggal: "2026-03-22", deskripsi: "Evaluasi kesiapan sarana Asesmen Nasional Berbasis Komputer (ANBK).", status: "Aktif" }
+    ];
+
+    function App() {
+      // Pilihan Menu Utama
+      const [currentTab, setCurrentTab] = useState("dashboard");
+      // Pilihan Sub-Tab Data SD & Data SMP (sekolah, murid, rombel, guru)
+      const [sdTab, setSdTab] = useState("sekolah");
+      const [smpTab, setSmpTab] = useState("sekolah");
+
+      // Load data awal dari Local Storage atau gunakan template bawaan
+      const [sdSchools, setSdSchools] = useState(() => {
+        const stored = localStorage.getItem("sips_sd_schools");
+        return stored ? JSON.parse(stored) : defaultSdSchools;
+      });
+
+      const [smpSchools, setSmpSchools] = useState(() => {
+        const stored = localStorage.getItem("sips_smp_schools");
+        return stored ? JSON.parse(stored) : defaultSmpSchools;
+      });
+
+      const [visits, setVisits] = useState(() => {
+        const stored = localStorage.getItem("sips_visits");
+        return stored ? JSON.parse(stored) : defaultVisits;
+      });
+
+      const [pkks, setPkks] = useState(() => {
+        const stored = localStorage.getItem("sips_pkks");
+        return stored ? JSON.parse(stored) : defaultPkks;
+      });
+
+      const [reflections, setReflections] = useState(() => {
+        const stored = localStorage.getItem("sips_reflections");
+        return stored ? JSON.parse(stored) : defaultReflections;
+      });
+
+      // Sinkronisasi data ke Local Storage setiap kali terjadi perubahan
+      useEffect(() => {
+        localStorage.setItem("sips_sd_schools", JSON.stringify(sdSchools));
+      }, [sdSchools]);
+
+      useEffect(() => {
+        localStorage.setItem("sips_smp_schools", JSON.stringify(smpSchools));
+      }, [smpSchools]);
+
+      useEffect(() => {
+        localStorage.setItem("sips_visits", JSON.stringify(visits));
+      }, [visits]);
+
+      useEffect(() => {
+        localStorage.setItem("sips_pkks", JSON.stringify(pkks));
+      }, [pkks]);
+
+      useEffect(() => {
+        localStorage.setItem("sips_reflections", JSON.stringify(reflections));
+      }, [reflections]);
+
+      // State Pencarian global / Filter Sekolah
+      const [searchQuery, setSearchQuery] = useState("");
+      const [selectedSchoolFilter, setSelectedSchoolFilter] = useState("");
+
+      // State Pengaturan Modal Form
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [modalType, setModalType] = useState(""); // "sd_sekolah", "smp_sekolah", "pkks", "refleksi"
+      const [editData, setEditData] = useState(null);
+      const [formData, setFormData] = useState({});
+
+      // State Notifikasi Kostum (untuk menggantikan alert)
+      const [notification, setNotification] = useState(null);
+
+      const showNotification = (message, type = "success") => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification(null), 3000);
+      };
+
+      // Reset pencarian dan filter
+      const handleResetSearch = () => {
+        setSearchQuery("");
+        setSelectedSchoolFilter("");
+      };
+
+      // Membuka modal form dalam kondisi Tambah maupun Edit
+      const handleOpenModal = (type, data = null) => {
+        setModalType(type);
+        setEditData(data);
+        if (data) {
+          setFormData({ ...data });
+        } else {
+          // Inisialisasi formulir baru kosong
+          if (type === "sd_sekolah" || type === "smp_sekolah") {
+            setFormData({
+              nama: "",
+              status: "NEGERI",
+              alamat: "",
+              akreditasi: "A",
+              npsn: "",
+              kepsek: "",
+              hpKepsek: "",
+              email: "",
+              murid: type === "sd_sekolah" 
+                ? { L1: 0, P1: 0, L2: 0, P2: 0, L3: 0, P3: 0, L4: 0, P4: 0, L5: 0, P5: 0, L6: 0, P6: 0 }
+                : { L7: 0, P7: 0, L8: 0, P8: 0, L9: 0, P9: 0 },
+              rombel: type === "sd_sekolah" ? [0, 0, 0, 0, 0, 0] : [0, 0, 0],
+              guru: { pns: 0, nonAsn: 0, yayasan: 0, tendik: 0, kepsek: 1 }
+            });
+          } else if (type === "pkks") {
+            setFormData({ sekolah: "", indikator: "Aktif", observasi: "A", keterangan: "" });
+          } else if (type === "refleksi") {
+            setFormData({ namaSekolah: "", pertemuan: 1, tanggal: new Date().toISOString().split('T')[0], deskripsi: "", status: "Aktif" });
+          }
+        }
+        setIsModalOpen(true);
+      };
+
+      // Menyimpan data hasil inputan form (Tambah / Edit)
+      const handleSaveData = (e) => {
+        e.preventDefault();
+        
+        if (modalType === "sd_sekolah") {
+          if (editData) {
+            setSdSchools(sdSchools.map(s => s.id === editData.id ? formData : s));
+            showNotification("Data SD Berhasil Diperbarui!");
+          } else {
+            const newId = "sd-" + Date.now();
+            const newSchool = { ...formData, id: newId };
+            setSdSchools([...sdSchools, newSchool]);
+            // Otomatis masukkan ke daftar kunjungan
+            setVisits([...visits, { id: "v-" + Date.now(), namaSekolah: formData.nama, jenjang: "SD", status: formData.status, checklist: Array(12).fill(false) }]);
+            showNotification("Data SD Baru Berhasil Ditambahkan!");
+          }
+        } else if (modalType === "smp_sekolah") {
+          if (editData) {
+            setSmpSchools(smpSchools.map(s => s.id === editData.id ? formData : s));
+            showNotification("Data SMP Berhasil Diperbarui!");
+          } else {
+            const newId = "smp-" + Date.now();
+            const newSchool = { ...formData, id: newId };
+            setSmpSchools([...smpSchools, newSchool]);
+            // Otomatis masukkan ke daftar kunjungan
+            setVisits([...visits, { id: "v-" + Date.now(), namaSekolah: formData.nama, jenjang: "SMP", status: formData.status, checklist: Array(12).fill(false) }]);
+            showNotification("Data SMP Baru Berhasil Ditambahkan!");
+          }
+        } else if (modalType === "pkks") {
+          if (editData) {
+            setPkks(pkks.map(p => p.id === editData.id ? formData : p));
+            showNotification("Data PKKS Berhasil Diperbarui!");
+          } else {
+            const newPkks = { ...formData, id: "p-" + Date.now() };
+            setPkks([...pkks, newPkks]);
+            showNotification("Data PKKS Baru Berhasil Ditambahkan!");
+          }
+        } else if (modalType === "refleksi") {
+          if (editData) {
+            setReflections(reflections.map(r => r.id === editData.id ? formData : r));
+            showNotification("Data Refleksi Berhasil Diperbarui!");
+          } else {
+            const newRefl = { ...formData, id: "r-" + Date.now() };
+            setReflections([...reflections, newRefl]);
+            showNotification("Data Refleksi Baru Berhasil Ditambahkan!");
+          }
+        }
+        setIsModalOpen(false);
+      };
+
+      // Menghapus baris data
+      const handleDeleteData = (type, id) => {
+        // Konfirmasi kustom sederhana dengan pembungkus UI aman
+        const isConfirmed = window.confirm("Apakah Anda yakin ingin menghapus data ini?");
+        if (isConfirmed) {
+          if (type === "sd") {
+            setSdSchools(sdSchools.filter(s => s.id !== id));
+            showNotification("Data SD Berhasil Dihapus!", "error");
+          } else if (type === "smp") {
+            setSmpSchools(smpSchools.filter(s => s.id !== id));
+            showNotification("Data SMP Berhasil Dihapus!", "error");
+          } else if (type === "pkks") {
+            setPkks(pkks.filter(p => p.id !== id));
+            showNotification("Data PKKS Berhasil Dihapus!", "error");
+          } else if (type === "refleksi") {
+            setReflections(reflections.filter(r => r.id !== id));
+            showNotification("Data Refleksi Berhasil Dihapus!", "error");
+          } else if (type === "visit") {
+            setVisits(visits.filter(v => v.id !== id));
+            showNotification("Data Kunjungan Berhasil Dihapus!", "error");
+          }
+        }
+      };
+
+      // Update checklist kunjungan bulanan
+      const handleToggleChecklist = (visitId, monthIndex) => {
+        setVisits(visits.map(v => {
+          if (v.id === visitId) {
+            const updated = [...v.checklist];
+            updated[monthIndex] = !updated[monthIndex];
+            return { ...v, checklist: updated };
+          }
+          return v;
+        }));
+      };
+
+      const totalSdCount = sdSchools.length;
+      const totalSmpCount = smpSchools.length;
+      const totalVisitsCount = visits.length;
+      const totalPkksCount = pkks.length;
+      const totalReflectionsCount = reflections.length;
+
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+
+      // Semua daftar nama sekolah digabung untuk mempermudah filter dropdown
+      const allSchoolNames = [
+        ...sdSchools.map(s => ({ nama: s.nama, tipe: "SD" })),
+        ...smpSchools.map(s => ({ nama: s.nama, tipe: "SMP" }))
+      ];
+
+      return (
+        <div className="flex flex-col md:flex-row min-h-screen">
+          
+          {/* BANNER NOTIFIKASI */}
+          {notification && (
+            <div className={`fixed top-4 right-4 z-50 flex items-center space-x-3 px-5 py-3 rounded-lg shadow-xl text-white font-semibold transition-all duration-300 transform translate-y-0 ${notification.type === "error" ? "bg-red-600" : "bg-emerald-600"}`}>
+              <i className={`fa-solid ${notification.type === "error" ? "fa-circle-exclamation" : "fa-circle-check"}`}></i>
+              <span>{notification.message}</span>
+            </div>
+          )}
+
+          {}
+          {/* SIDEBAR SIPS - Sesuai dengan mockup di tangkapan layar */}
+          <aside className="w-full md:w-64 bg-emerald-800 text-white flex flex-col no-print shrink-0 border-r border-emerald-900 shadow-md">
+            <div className="p-6 border-b border-emerald-700/60 flex flex-col items-center">
+              {/* Desain Avatar Guru/Admin */}
+              <div className="w-20 h-20 bg-amber-400 rounded-full flex items-center justify-center text-3xl font-bold text-emerald-900 border-4 border-slate-100 shadow-md mb-3 overflow-hidden">
+                <i className="fa-solid fa-user-tie"></i>
+              </div>
+              <h2 className="font-bold text-lg text-center leading-tight">Admin SIPS</h2>
+              <span className="text-xs text-emerald-200 mt-1">adminsips@gmail.com</span>
+              <div className="bg-emerald-950/80 text-amber-300 text-xs px-3 py-1 rounded-full font-semibold mt-3 flex items-center space-x-1 border border-emerald-700">
+                <i className="fa-solid fa-shield-halved text-[10px]"></i>
+                <span>SD & SMP Wilayah</span>
+              </div>
+            </div>
+
+            {/* Menu Navigasi Sidebar */}
+            <nav className="flex-1 px-4 py-6 space-y-1">
+              <button 
+                onClick={() => { setCurrentTab("dashboard"); handleResetSearch(); }} 
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${currentTab === "dashboard" ? "bg-emerald-900 text-white shadow-md font-bold border-l-4 border-amber-400" : "text-emerald-100 hover:bg-emerald-750 hover:text-white"}`}
+              >
+                <i className="fa-solid fa-chart-line w-5 text-center text-base"></i>
+                <span>Dashboard</span>
+              </button>
+
+              <button 
+                onClick={() => { setCurrentTab("kunjungan"); handleResetSearch(); }} 
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${currentTab === "kunjungan" ? "bg-emerald-900 text-white shadow-md font-bold border-l-4 border-amber-400" : "text-emerald-100 hover:bg-emerald-750 hover:text-white"}`}
+              >
+                <i className="fa-solid fa-calendar-check w-5 text-center text-base"></i>
+                <span>Kunjungan Sekolah</span>
+              </button>
+
+              <button 
+                onClick={() => { setCurrentTab("sd"); handleResetSearch(); }} 
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${currentTab === "sd" ? "bg-emerald-900 text-white shadow-md font-bold border-l-4 border-amber-400" : "text-emerald-100 hover:bg-emerald-750 hover:text-white"}`}
+              >
+                <i className="fa-solid fa-school w-5 text-center text-base"></i>
+                <span>Data SD</span>
+              </button>
+
+              <button 
+                onClick={() => { setCurrentTab("smp"); handleResetSearch(); }} 
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${currentTab === "smp" ? "bg-emerald-900 text-white shadow-md font-bold border-l-4 border-amber-400" : "text-emerald-100 hover:bg-emerald-750 hover:text-white"}`}
+              >
+                <i className="fa-solid fa-building-columns w-5 text-center text-base"></i>
+                <span>Data SMP</span>
+              </button>
+
+              <button 
+                onClick={() => { setCurrentTab("pkks"); handleResetSearch(); }} 
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${currentTab === "pkks" ? "bg-emerald-900 text-white shadow-md font-bold border-l-4 border-amber-400" : "text-emerald-100 hover:bg-emerald-750 hover:text-white"}`}
+              >
+                <i className="fa-solid fa-id-card-clip w-5 text-center text-base"></i>
+                <span>PKKS</span>
+              </button>
+
+              <button 
+                onClick={() => { setCurrentTab("refleksi"); handleResetSearch(); }} 
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${currentTab === "refleksi" ? "bg-emerald-900 text-white shadow-md font-bold border-l-4 border-amber-400" : "text-emerald-100 hover:bg-emerald-750 hover:text-white"}`}
+              >
+                <i className="fa-regular fa-comments w-5 text-center text-base"></i>
+                <span>Refleksi</span>
+              </button>
+            </nav>
+
+            <div className="p-6 border-t border-emerald-700/40 text-center text-xs text-emerald-200">
+              <p className="font-semibold">SIPS v2.0</p>
+              <p className="mt-1 opacity-80">Dinas Pendidikan</p>
+              <p className="mt-1 font-mono text-[10px] opacity-60">Hak Cipta © 2026</p>
+            </div>
+          </aside>
+
+          {}
+          {/* WORKSPACE AREA */}
+          <main className="flex-1 flex flex-col min-w-0">
+            
+            {/* Header Workspace */}
+            <header className="bg-white border-b border-slate-200 shadow-sm py-4 px-6 md:px-8 flex flex-col sm:flex-row justify-between items-center no-print gap-4">
+              <div className="flex items-center space-x-3">
+                <i className="fa-solid fa-graduation-cap text-emerald-700 text-2xl"></i>
+                <h1 className="text-xl font-bold text-slate-800 tracking-tight">Sistem Informasi Pengawas Sekolah (SIPS)</h1>
+              </div>
+              <div className="flex items-center space-x-3">
+                <button 
+                  onClick={() => window.print()} 
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-lg text-sm transition flex items-center space-x-2 shadow-sm"
+                >
+                  <i className="fa-solid fa-print"></i>
+                  <span>Cetak Laporan</span>
+                </button>
+              </div>
+            </header>
+
+            {/* Area Isi Konten Utama */}
+            <div className="flex-1 p-6 md:p-8 print-area">
+              
+              {/* ==================================== */}
+              {/* 1. KONTEN TAB: DASHBOARD */}
+              {/* ==================================== */}
+              {currentTab === "dashboard" && (
+                <div>
+                  <div className="mb-6">
+                    <h2 className="text-2xl font-bold text-slate-800">Selamat Datang Di DashBoard SIPS</h2>
+                    <p className="text-slate-500 text-sm mt-1">Halaman monitoring kesiswaan, profil, dan rekapitulasi penilaian kinerja SD & SMP.</p>
+                  </div>
+
+                  {/* Statistik Cards sesuai mockup warna di tangkapan layar laptop */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                    <div className="bg-blue-600 text-white p-6 rounded-xl shadow relative overflow-hidden">
+                      <div className="text-xs uppercase font-bold tracking-wider opacity-80">Total SD</div>
+                      <div className="text-4xl font-extrabold mt-2">{totalSdCount}</div>
+                      <div className="text-[11px] mt-4 bg-white/20 inline-block px-2 py-0.5 rounded font-medium">Sekolah Dasar</div>
+                      <i className="fa-solid fa-school absolute right-3 bottom-3 text-white/10 text-6xl"></i>
+                    </div>
+
+                    <div className="bg-cyan-500 text-white p-6 rounded-xl shadow relative overflow-hidden">
+                      <div className="text-xs uppercase font-bold tracking-wider opacity-80">Total SMP</div>
+                      <div className="text-4xl font-extrabold mt-2">{totalSmpCount}</div>
+                      <div className="text-[11px] mt-4 bg-white/20 inline-block px-2 py-0.5 rounded font-medium">Sekolah Menengah</div>
+                      <i className="fa-solid fa-building-columns absolute right-3 bottom-3 text-white/10 text-6xl"></i>
+                    </div>
+
+                    <div className="bg-red-500 text-white p-6 rounded-xl shadow relative overflow-hidden">
+                      <div className="text-xs uppercase font-bold tracking-wider opacity-80">Pengaduan</div>
+                      <div className="text-4xl font-extrabold mt-2">0</div>
+                      <div className="text-[11px] mt-4 bg-white/20 inline-block px-2 py-0.5 rounded font-medium">Laporan Masuk</div>
+                      <i className="fa-solid fa-triangle-exclamation absolute right-3 bottom-3 text-white/10 text-6xl"></i>
+                    </div>
+
+                    <div className="bg-emerald-600 text-white p-6 rounded-xl shadow relative overflow-hidden">
+                      <div className="text-xs uppercase font-bold tracking-wider opacity-80">PKKS</div>
+                      <div className="text-4xl font-extrabold mt-2">{totalPkksCount}</div>
+                      <div className="text-[11px] mt-4 bg-white/20 inline-block px-2 py-0.5 rounded font-medium">Kinerja Kepsek</div>
+                      <i className="fa-solid fa-id-card-clip absolute right-3 bottom-3 text-white/10 text-6xl"></i>
+                    </div>
+
+                    <div className="bg-amber-500 text-white p-6 rounded-xl shadow relative overflow-hidden">
+                      <div className="text-xs uppercase font-bold tracking-wider opacity-80">Refleksi</div>
+                      <div className="text-4xl font-extrabold mt-2">{totalReflectionsCount}</div>
+                      <div className="text-[11px] mt-4 bg-white/20 inline-block px-2 py-0.5 rounded font-medium">Program Rutin</div>
+                      <i className="fa-regular fa-comments absolute right-3 bottom-3 text-white/10 text-6xl"></i>
+                    </div>
+                  </div>
+
+                  {/* Petunjuk Penggunaan & Informasi */}
+                  <div className="bg-white rounded-xl shadow border border-slate-200 p-6">
+                    <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                      <i className="fa-solid fa-circle-info text-emerald-600 mr-2 text-xl"></i>
+                      Informasi Pengawasan & Ruang Lingkup SIPS (SD & SMP)
+                    </h3>
+                    <div className="text-slate-600 text-sm leading-relaxed space-y-4">
+                      <p>Sistem Informasi Pengawas Sekolah (SIPS) memfasilitasi pendataan kualitatif dan kuantitatif bagi pengawas binaan. Dengan pemetaan jenjang **Sekolah Dasar (SD)** dan **Sekolah Menengah Pertama (SMP)**, aplikasi ini merekam berbagai macam instrumen penting:</p>
+                      <ul className="list-disc pl-5 space-y-2">
+                        <li><strong>Kunjungan Sekolah Bulanan:</strong> Lembar pemantauan kehadiran serta checklist pembinaan bulanan dari bulan Januari sampai dengan Desember.</li>
+                        <li><strong>Profil & Detail Sarana Sekolah:</strong> Menyimpan lengkap Akreditasi, NPSN, Kontak Kepala Sekolah, data kesiswaan laki-laki dan perempuan per kelas (SD: Kelas I-VI, SMP: Kelas VII-IX), data rombel, serta detail status guru PNS/Non-ASN/Yayasan.</li>
+                        <li><strong>PKKS (Penilaian Kinerja Kepala Sekolah):</strong> Untuk menilai ketercapaian kepala sekolah dalam memimpin pembelajaran di satuan pendidikan.</li>
+                        <li><strong>Refleksi Sekolah:</strong> Catatan evaluasi mingguan/bulanan dari pertemuan komite pembelajaran bersama pengawas sekolah.</li>
+                      </ul>
+                      <p className="text-emerald-700 font-semibold bg-emerald-50 p-3 rounded-lg border border-emerald-100"><i className="fa-solid fa-lightbulb mr-1.5"></i> Informasi: Data Anda tersimpan secara lokal dan aman di browser komputer Anda. Jika Anda ingin memindahkan data, silakan klik tombol cetak laporan untuk membuat format PDF / lembar fisik.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {}
+              {/* ==================================== */}
+              {/* 2. KONTEN TAB: KUNJUNGAN SEKOLAH */}
+              {/* ==================================== */}
+              {currentTab === "kunjungan" && (
+                <div className="bg-white rounded-xl shadow border border-slate-200 p-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-800 flex items-center">
+                        <i className="fa-solid fa-calendar-check text-emerald-600 mr-2"></i>
+                        Data Kunjungan Sekolah
+                      </h2>
+                      <p className="text-slate-500 text-sm mt-1">Daftar presensi, pengawasan, dan checklist pendampingan sekolah bulanan.</p>
+                    </div>
+                  </div>
+
+                  {/* Kolom Pencarian */}
+                  <div className="bg-slate-50 p-4 rounded-lg flex flex-wrap gap-4 mb-6">
+                    <div className="relative flex-1 min-w-[240px]">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                        <i className="fa-solid fa-magnifying-glass"></i>
+                      </span>
+                      <input 
+                        type="text" 
+                        placeholder="Ketik nama sekolah yang dicari..." 
+                        className="border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-sm w-full bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <button onClick={handleResetSearch} className="bg-slate-400 hover:bg-slate-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-all shadow-sm">Reset</button>
+                  </div>
+
+                  {/* Tabel Checklist Bulanan */}
+                  <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left text-sm border-collapse min-w-[800px]">
+                      <thead>
+                        <tr className="bg-emerald-50 text-emerald-900 uppercase font-bold text-xs border-b border-emerald-200">
+                          <th className="py-3 px-4 w-12 text-center">No</th>
+                          <th className="py-3 px-4">Nama Sekolah</th>
+                          <th className="py-3 px-4 w-24 text-center">Jenjang</th>
+                          <th className="py-3 px-4 w-24 text-center">Status</th>
+                          {monthNames.map((m, i) => (
+                            <th key={i} className="py-3 px-1 text-center font-bold text-[11px] w-12">{m}</th>
+                          ))}
+                          <th className="py-3 px-4 text-center w-16 no-print">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visits
+                          .filter(v => v.namaSekolah.toLowerCase().includes(searchQuery.toLowerCase()))
+                          .map((v, index) => (
+                            <tr key={v.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-all">
+                              <td className="py-4 px-4 font-semibold text-slate-500 text-center">{index + 1}</td>
+                              <td className="py-4 px-4 font-bold text-slate-800 text-sm">{v.namaSekolah}</td>
+                              <td className="py-4 px-4 text-center">
+                                <span className={`px-2 py-0.5 rounded text-xs font-extrabold ${v.jenjang === "SD" ? "bg-blue-100 text-blue-700" : "bg-cyan-100 text-cyan-700"}`}>{v.jenjang}</span>
+                              </td>
+                              <td className="py-4 px-4 text-center">
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${v.status === "NEGERI" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>{v.status}</span>
+                              </td>
+                              {v.checklist.map((checked, mIdx) => (
+                                <td key={mIdx} className="py-4 px-1 text-center">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={checked}
+                                    onChange={() => handleToggleChecklist(v.id, mIdx)}
+                                    className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 cursor-pointer no-print"
+                                  />
+                                  {/* Simbol saat dicetak */}
+                                  <span className="hidden print:inline-block font-bold text-emerald-600 text-xs">
+                                    {checked ? "✓" : "-"}
+                                  </span>
+                                </td>
+                              ))}
+                              <td className="py-4 px-4 text-center no-print">
+                                <button onClick={() => handleDeleteData("visit", v.id)} className="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-lg transition-all" title="Hapus Kunjungan">
+                                  <i className="fa-solid fa-trash text-xs"></i>
+                                </button>
+                              </td>
+                            </tr>
+                        ))}
+                        {visits.filter(v => v.namaSekolah.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                          <tr>
+                            <td colSpan={17} className="py-8 text-center text-slate-400">Tidak ada data kunjungan sekolah ditemukan. Silakan tambahkan data sekolah terlebih dahulu.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {}
+              {/* ======================================================= */}
+              {/* 3 & 4. KONTEN TAB: DETAIL SEKOLAH (SD & SMP) */}
+              {/* ======================================================= */}
+              {(currentTab === "sd" || currentTab === "smp") && (
+                <div>
+                  <div className="bg-white rounded-xl shadow border border-slate-200 p-6 mb-6">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-slate-100 pb-4">
+                      <div>
+                        <h2 className="text-2xl font-bold text-slate-800 flex items-center">
+                          <i className={`fa-solid mr-2.5 ${currentTab === "sd" ? "fa-school text-blue-600" : "fa-building-columns text-cyan-600"}`}></i>
+                          Data Jenjang {currentTab === "sd" ? "Sekolah Dasar (SD)" : "Sekolah Menengah Pertama (SMP)"}
+                        </h2>
+                        <p className="text-slate-500 text-sm mt-1">SIPS: Data Administrasi Profil, Kesiswaan, Rombongan Belajar, dan Tenaga Guru Pengajar.</p>
+                      </div>
+                      <button 
+                        onClick={() => handleOpenModal(currentTab === "sd" ? "sd_sekolah" : "smp_sekolah")}
+                        className={`font-semibold px-4 py-2.5 rounded-lg text-sm transition-all flex items-center space-x-2 shadow-sm no-print ${currentTab === "sd" ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-cyan-600 hover:bg-cyan-700 text-white"}`}
+                      >
+                        <i className="fa-solid fa-plus"></i>
+                        <span>Tambah Data {currentTab === "sd" ? "SD" : "SMP"}</span>
+                      </button>
+                    </div>
+
+                    {/* Sub Navigation Tabs Data Detail */}
+                    <div className="flex space-x-1 border-b border-slate-200 no-print">
+                      {["sekolah", "murid", "rombel", "guru"].map((sub) => (
+                        <button
+                          key={sub}
+                          onClick={() => currentTab === "sd" ? setSdTab(sub) : setSmpTab(sub)}
+                          className={`px-4 py-2.5 font-bold text-xs uppercase tracking-wider border-b-2 transition-all ${
+                            (currentTab === "sd" ? sdTab : smpTab) === sub
+                              ? currentTab === "sd" ? "border-blue-600 text-blue-600 bg-blue-50/50" : "border-cyan-600 text-cyan-600 bg-cyan-50/50"
+                              : "border-transparent text-slate-500 hover:text-slate-800"
+                          }`}
+                        >
+                          Data {sub === "rombel" ? "Rombongan Belajar" : sub}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Filter Pencarian dan Reset */}
+                    <div className="mt-6 flex flex-wrap gap-4 p-4 bg-slate-50 rounded-lg no-print">
+                      <div className="relative flex-1 min-w-[240px]">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                          <i className="fa-solid fa-magnifying-glass"></i>
+                        </span>
+                        <input 
+                          type="text" 
+                          placeholder="Cari nama sekolah..." 
+                          className="border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-sm w-full bg-white focus:outline-none focus:ring-2 focus:ring-slate-400"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                      </div>
+                      <button onClick={handleResetSearch} className="bg-slate-400 hover:bg-slate-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-all shadow-sm">Reset</button>
+                    </div>
+                  </div>
+
+                  {}
+                  {/* --- SUB TAB: DATA SEKOLAH --- */}
+                  {((currentTab === "sd" && sdTab === "sekolah") || (currentTab === "smp" && smpTab === "sekolah")) && (
+                    <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
+                      <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-left text-sm border-collapse min-w-[900px]">
+                          <thead>
+                            <tr className="bg-emerald-50 text-emerald-900 font-bold text-xs uppercase border-b border-emerald-200">
+                              <th className="py-3.5 px-4 w-12 text-center">No</th>
+                              <th className="py-3.5 px-4">Nama Sekolah</th>
+                              <th className="py-3.5 px-4 w-24">Status</th>
+                              <th className="py-3.5 px-4">Alamat</th>
+                              <th className="py-3.5 px-4 w-24 text-center">Akreditasi</th>
+                              <th className="py-3.5 px-4 w-28 text-center">NPSN</th>
+                              <th className="py-3.5 px-4">Kepala Sekolah</th>
+                              <th className="py-3.5 px-4 w-32">No. HP</th>
+                              <th className="py-3.5 px-4">E-mail</th>
+                              <th className="py-3.5 px-4 text-center w-28 no-print">Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(currentTab === "sd" ? sdSchools : smpSchools)
+                              .filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase()))
+                              .map((s, index) => (
+                                <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-all">
+                                  <td className="py-4 px-4 font-semibold text-slate-500 text-center">{index + 1}</td>
+                                  <td className="py-4 px-4 font-bold text-slate-800 text-sm">{s.nama}</td>
+                                  <td className="py-4 px-4">
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${s.status === "NEGERI" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>{s.status}</span>
+                                  </td>
+                                  <td className="py-4 px-4 text-xs text-slate-600 max-w-xs truncate" title={s.alamat}>{s.alamat}</td>
+                                  <td className="py-4 px-4 text-center"><span className="bg-slate-100 border border-slate-300 text-slate-800 font-black text-[11px] px-2 py-0.5 rounded-full">{s.akreditasi}</span></td>
+                                  <td className="py-4 px-4 font-mono text-xs text-center">{s.npsn}</td>
+                                  <td className="py-4 px-4 font-semibold text-slate-700 text-xs">{s.kepsek}</td>
+                                  <td className="py-4 px-4 text-xs font-mono">{s.hpKepsek}</td>
+                                  <td className="py-4 px-4 text-xs underline text-blue-600 select-all">{s.email}</td>
+                                  <td className="py-4 px-4 text-center space-x-1.5 no-print">
+                                    <button onClick={() => handleOpenModal(currentTab === "sd" ? "sd_sekolah" : "smp_sekolah", s)} className="bg-amber-500 hover:bg-amber-600 text-white p-1.5 rounded-lg transition-all" title="Edit Data">
+                                      <i className="fa-solid fa-pen text-xs"></i>
+                                    </button>
+                                    <button onClick={() => handleDeleteData(currentTab, s.id)} className="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-lg transition-all" title="Hapus Data">
+                                      <i className="fa-solid fa-trash text-xs"></i>
+                                    </button>
+                                  </td>
+                                </tr>
+                            ))}
+                            {(currentTab === "sd" ? sdSchools : smpSchools).filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                              <tr>
+                                <td colSpan={10} className="py-8 text-center text-slate-400">Tidak ada data sekolah binaan ditemukan.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {}
+                  {/* --- SUB TAB: DATA MURID (CUSTOM PER TINGKATAN SD & SMP) --- */}
+                  {((currentTab === "sd" && sdTab === "murid") || (currentTab === "smp" && smpTab === "murid")) && (
+                    <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
+                      <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-left text-sm border-collapse min-w-[950px]">
+                          <thead>
+                            <tr className="bg-emerald-50 text-emerald-950 font-bold text-xs uppercase border-b border-emerald-200">
+                              <th className="py-3 px-4 w-12 text-center" rowSpan={2}>No</th>
+                              <th className="py-3 px-4" rowSpan={2}>Nama Sekolah</th>
+                              {currentTab === "sd" ? (
+                                <React.Fragment>
+                                  {["I", "II", "III", "IV", "V", "VI"].map((kls) => (
+                                    <th key={kls} className="py-2 text-center border-l border-emerald-200/50" colSpan={2}>Kelas {kls}</th>
+                                  ))}
+                                </React.Fragment>
+                              ) : (
+                                <React.Fragment>
+                                  {["VII", "VIII", "IX"].map((kls) => (
+                                    <th key={kls} className="py-2 text-center border-l border-emerald-200/50" colSpan={2}>Kelas {kls}</th>
+                                  ))}
+                                </React.Fragment>
+                              )}
+                              <th className="py-3 px-4 text-center border-l border-emerald-200/50 w-28 bg-emerald-100" rowSpan={2}>Total Murid</th>
+                            </tr>
+                            <tr className="bg-emerald-50/60 text-emerald-900 text-[10px] font-bold uppercase border-b border-emerald-200">
+                              {Array(currentTab === "sd" ? 6 : 3).fill(null).map((_, idx) => (
+                                <React.Fragment key={idx}>
+                                  <th className="py-1.5 px-2 text-center border-l border-slate-200">L</th>
+                                  <th className="py-1.5 px-2 text-center">P</th>
+                                </React.Fragment>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(currentTab === "sd" ? sdSchools : smpSchools)
+                              .filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase()))
+                              .map((s, index) => {
+                                let totalMurid = 0;
+                                if (currentTab === "sd") {
+                                  totalMurid = s.murid.L1 + s.murid.P1 + s.murid.L2 + s.murid.P2 + s.murid.L3 + s.murid.P3 + s.murid.L4 + s.murid.P4 + s.murid.L5 + s.murid.P5 + s.murid.L6 + s.murid.P6;
+                                } else {
+                                  totalMurid = s.murid.L7 + s.murid.P7 + s.murid.L8 + s.murid.P8 + s.murid.L9 + s.murid.P9;
+                                }
+                                return (
+                                  <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-all text-xs">
+                                    <td className="py-4 px-4 font-semibold text-slate-500 text-center">{index + 1}</td>
+                                    <td className="py-4 px-4 font-bold text-slate-800 text-sm">{s.nama}</td>
+                                    
+                                    {/* Data Kelas SD (I-VI) */}
+                                    {currentTab === "sd" && (
+                                      <React.Fragment>
+                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L1}</td>
+                                        <td className="py-4 px-2 text-center">{s.murid.P1}</td>
+                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L2}</td>
+                                        <td className="py-4 px-2 text-center">{s.murid.P2}</td>
+                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L3}</td>
+                                        <td className="py-4 px-2 text-center">{s.murid.P3}</td>
+                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L4}</td>
+                                        <td className="py-4 px-2 text-center">{s.murid.P4}</td>
+                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L5}</td>
+                                        <td className="py-4 px-2 text-center">{s.murid.P5}</td>
+                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L6}</td>
+                                        <td className="py-4 px-2 text-center">{s.murid.P6}</td>
+                                      </React.Fragment>
+                                    )}
+
+                                    {/* Data Kelas SMP (VII-IX) */}
+                                    {currentTab === "smp" && (
+                                      <React.Fragment>
+                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L7}</td>
+                                        <td className="py-4 px-2 text-center">{s.murid.P7}</td>
+                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L8}</td>
+                                        <td className="py-4 px-2 text-center">{s.murid.P8}</td>
+                                        <td className="py-4 px-2 text-center border-l border-slate-100">{s.murid.L9}</td>
+                                        <td className="py-4 px-2 text-center">{s.murid.P9}</td>
+                                      </React.Fragment>
+                                    )}
+
+                                    <td className="py-4 px-4 font-extrabold text-center border-l border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">{totalMurid}</td>
+                                  </tr>
+                                );
+                              })}
+                            {(currentTab === "sd" ? sdSchools : smpSchools).filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                              <tr>
+                                <td colSpan={currentTab === "sd" ? 15 : 9} className="py-8 text-center text-slate-400">Tidak ada data murid sekolah binaan ditemukan.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {}
+                  {/* --- SUB TAB: DATA ROMBONGAN BELAJAR (ROMBEL) --- */}
+                  {((currentTab === "sd" && sdTab === "rombel") || (currentTab === "smp" && smpTab === "rombel")) && (
+                    <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
+                      <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-left text-sm border-collapse min-w-[700px]">
+                          <thead>
+                            <tr className="bg-emerald-50 text-emerald-950 font-bold text-xs uppercase border-b border-emerald-200">
+                              <th className="py-3 px-4 w-12 text-center" rowSpan={2}>No</th>
+                              <th className="py-3 px-4" rowSpan={2}>Nama Sekolah</th>
+                              <th className="py-2 text-center border-l border-emerald-200/50" colSpan={currentTab === "sd" ? 6 : 3}>Jumlah Rombongan Belajar (Rombel)</th>
+                              <th className="py-3 px-4 text-center border-l border-emerald-200/50 w-32 bg-emerald-100" rowSpan={2}>Total Rombel</th>
+                            </tr>
+                            <tr className="bg-emerald-50/60 text-emerald-900 text-xs font-bold uppercase border-b border-emerald-200">
+                              {currentTab === "sd" ? (
+                                ["Kelas I", "Kelas II", "Kelas III", "Kelas IV", "Kelas V", "Kelas VI"].map((kls) => (
+                                  <th key={kls} className="py-2 px-2 text-center border-l border-slate-200">{kls}</th>
+                                ))
+                              ) : (
+                                ["Kelas VII", "Kelas VIII", "Kelas IX"].map((kls) => (
+                                  <th key={kls} className="py-2 px-2 text-center border-l border-slate-200">{kls}</th>
+                                ))
+                              )}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(currentTab === "sd" ? sdSchools : smpSchools)
+                              .filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase()))
+                              .map((s, index) => {
+                                const totalRombel = s.rombel.reduce((a, b) => a + b, 0);
+                                return (
+                                  <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-all">
+                                    <td className="py-4 px-4 font-semibold text-slate-500 text-center">{index + 1}</td>
+                                    <td className="py-4 px-4 font-bold text-slate-800 text-sm">{s.nama}</td>
+                                    {s.rombel.map((val, idx) => (
+                                      <td key={idx} className="py-4 px-2 text-center border-l border-slate-100 text-slate-600">{val}</td>
+                                    ))}
+                                    <td className="py-4 px-4 font-black text-center border-l border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">{totalRombel}</td>
+                                  </tr>
+                                );
+                              })}
+                            {(currentTab === "sd" ? sdSchools : smpSchools).filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                              <tr>
+                                <td colSpan={currentTab === "sd" ? 9 : 6} className="py-8 text-center text-slate-400">Tidak ada data rombongan belajar binaan ditemukan.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {}
+                  {/* --- SUB TAB: DATA GURU & TENDIK --- */}
+                  {((currentTab === "sd" && sdTab === "guru") || (currentTab === "smp" && smpTab === "guru")) && (
+                    <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
+                      <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-left text-sm border-collapse min-w-[850px]">
+                          <thead>
+                            <tr className="bg-emerald-50 text-emerald-950 font-bold text-xs uppercase border-b border-emerald-200">
+                              <th className="py-3 px-4 w-12 text-center" rowSpan={2}>No</th>
+                              <th className="py-3 px-4" rowSpan={2}>Nama Sekolah</th>
+                              <th className="py-2 text-center border-l border-emerald-200/50" colSpan={3}>Status Kepegawaian Guru</th>
+                              <th className="py-3 px-4 text-center border-l border-emerald-200/50 w-28 bg-emerald-100" rowSpan={2}>Total Guru</th>
+                              <th className="py-3 px-4 text-center border-l border-emerald-200/50 w-32 bg-amber-50 text-amber-950" rowSpan={2}>Tendik</th>
+                              <th className="py-3 px-4 text-center border-l border-emerald-200/50 w-32 bg-blue-50 text-blue-950" rowSpan={2}>Kepala Sekolah</th>
+                            </tr>
+                            <tr className="bg-emerald-50/60 text-emerald-900 text-xs font-bold uppercase border-b border-emerald-200">
+                              <th className="py-2 px-2 text-center border-l border-slate-200">PNS / P3K</th>
+                              <th className="py-2 px-2 text-center border-l border-slate-200">Non-ASN</th>
+                              <th className="py-2 px-2 text-center border-l border-slate-200">Yayasan</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(currentTab === "sd" ? sdSchools : smpSchools)
+                              .filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase()))
+                              .map((s, index) => {
+                                const totalGuru = s.guru.pns + s.guru.nonAsn + s.guru.yayasan;
+                                return (
+                                  <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-all">
+                                    <td className="py-4 px-4 font-semibold text-slate-500 text-center">{index + 1}</td>
+                                    <td className="py-4 px-4 font-bold text-slate-800 text-sm">{s.nama}</td>
+                                    <td className="py-4 px-2 text-center border-l border-slate-100 text-slate-600">{s.guru.pns}</td>
+                                    <td className="py-4 px-2 text-center border-l border-slate-100 text-slate-600">{s.guru.nonAsn}</td>
+                                    <td className="py-4 px-2 text-center border-l border-slate-100 text-slate-600">{s.guru.yayasan}</td>
+                                    <td className="py-4 px-4 font-black text-center border-l border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">{totalGuru}</td>
+                                    <td className="py-4 px-4 font-semibold text-center border-l border-amber-200 bg-amber-50/30 text-amber-700 text-sm">{s.guru.tendik}</td>
+                                    <td className="py-4 px-4 font-semibold text-center border-l border-blue-200 bg-blue-50/30 text-blue-700 text-sm">{s.guru.kepsek}</td>
+                                  </tr>
+                                );
+                              })}
+                            {(currentTab === "sd" ? sdSchools : smpSchools).filter(s => s.nama.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                              <tr>
+                                <td colSpan={8} className="py-8 text-center text-slate-400">Tidak ada data tenaga pengajar binaan ditemukan.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {}
+              {/* ==================================== */}
+              {/* 5. KONTEN TAB: PKKS */}
+              {/* ==================================== */}
+              {currentTab === "pkks" && (
+                <div className="bg-white rounded-xl shadow border border-slate-200 p-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-800 flex items-center">
+                        <i className="fa-solid fa-id-card-clip text-emerald-600 mr-2"></i>
+                        PKKS (Penilaian Kinerja Kepala Sekolah)
+                      </h2>
+                      <p className="text-slate-500 text-sm mt-1">SIPS: Lembar monitoring indikator kelulusan, hasil penilaian, observasi kualitatif, dan rekap rekomendasi.</p>
+                    </div>
+                    <button 
+                      onClick={() => handleOpenModal("pkks")}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-all flex items-center space-x-2 shadow-sm no-print"
+                    >
+                      <i className="fa-solid fa-plus"></i>
+                      <span>Tambah Data PKKS</span>
+                    </button>
+                  </div>
+
+                  {/* Filter Pencarian */}
+                  <div className="bg-slate-50 p-4 rounded-lg flex flex-wrap gap-4 mb-6 no-print">
+                    <div className="relative flex-1 min-w-[240px]">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                        <i className="fa-solid fa-magnifying-glass"></i>
+                      </span>
+                      <input 
+                        type="text" 
+                        placeholder="Ketik nama sekolah..." 
+                        className="border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-sm w-full bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <button onClick={handleResetSearch} className="bg-slate-400 hover:bg-slate-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-all shadow-sm">Reset</button>
+                  </div>
+
+                  {/* Tabel PKKS */}
+                  <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left text-sm border-collapse min-w-[700px]">
+                      <thead>
+                        <tr className="bg-emerald-50 text-emerald-900 font-bold text-xs uppercase border-b border-emerald-200">
+                          <th className="py-3.5 px-4 w-12 text-center">No</th>
+                          <th className="py-3.5 px-4">Nama Sekolah</th>
+                          <th className="py-3.5 px-4 w-32 text-center">Indikator</th>
+                          <th className="py-3.5 px-4 w-32 text-center">Observasi</th>
+                          <th className="py-3.5 px-4">Keterangan Penilaian / Rekomendasi</th>
+                          <th className="py-3.5 px-4 text-center w-28 no-print">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pkks
+                          .filter(p => p.sekolah.toLowerCase().includes(searchQuery.toLowerCase()))
+                          .map((p, index) => (
+                            <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-all">
+                              <td className="py-4 px-4 font-semibold text-slate-500 text-center">{index + 1}</td>
+                              <td className="py-4 px-4 font-bold text-slate-800 text-sm">{p.sekolah}</td>
+                              <td className="py-4 px-4 text-center">
+                                <span className="bg-emerald-100 border border-emerald-200 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">{p.indikator}</span>
+                              </td>
+                              <td className="py-4 px-4 text-center font-black text-amber-600 text-lg">{p.observasi}</td>
+                              <td className="py-4 px-4 text-xs text-slate-600 max-w-sm" title={p.keterangan}>{p.keterangan}</td>
+                              <td className="py-4 px-4 text-center space-x-1.5 no-print">
+                                <button onClick={() => handleOpenModal("pkks", p)} className="bg-amber-500 hover:bg-amber-600 text-white p-1.5 rounded-lg transition-all" title="Edit PKKS">
+                                  <i className="fa-solid fa-pen text-xs"></i>
+                                </button>
+                                <button onClick={() => handleDeleteData("pkks", p.id)} className="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-lg transition-all" title="Hapus PKKS">
+                                  <i className="fa-solid fa-trash text-xs"></i>
+                                </button>
+                              </td>
+                            </tr>
+                        ))}
+                        {pkks.filter(p => p.sekolah.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                          <tr>
+                            <td colSpan={6} className="py-8 text-center text-slate-400">Tidak ada data hasil PKKS ditemukan.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {}
+              {/* ==================================== */}
+              {/* 6. KONTEN TAB: REFLEKSI SEKOLAH */}
+              {/* ==================================== */}
+              {currentTab === "refleksi" && (
+                <div className="bg-white rounded-xl shadow border border-slate-200 p-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-800 flex items-center">
+                        <i className="fa-regular fa-comments text-emerald-600 mr-2"></i>
+                        Data Refleksi Sekolah
+                      </h2>
+                      <p className="text-slate-500 text-sm mt-1">SIPS: Jurnal pendampingan mingguan/bulanan dari diskusi komite pembelajaran dan refleksi program.</p>
+                    </div>
+                    <button 
+                      onClick={() => handleOpenModal("refleksi")}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-all flex items-center space-x-2 shadow-sm no-print"
+                    >
+                      <i className="fa-solid fa-plus"></i>
+                      <span>Tambah Jurnal Refleksi</span>
+                    </button>
+                  </div>
+
+                  {/* Filter Pencarian */}
+                  <div className="bg-slate-50 p-4 rounded-lg flex flex-wrap gap-4 mb-6 no-print">
+                    <div className="relative flex-1 min-w-[240px]">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                        <i className="fa-solid fa-magnifying-glass"></i>
+                      </span>
+                      <input 
+                        type="text" 
+                        placeholder="Cari nama sekolah atau nomor pertemuan..." 
+                        className="border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-sm w-full bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <button onClick={handleResetSearch} className="bg-slate-400 hover:bg-slate-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-all shadow-sm">Reset</button>
+                  </div>
+
+                  {/* Tabel Refleksi */}
+                  <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left text-sm border-collapse min-w-[700px]">
+                      <thead>
+                        <tr className="bg-emerald-50 text-emerald-900 font-bold text-xs uppercase border-b border-emerald-200">
+                          <th className="py-3.5 px-4 w-12 text-center">No</th>
+                          <th className="py-3.5 px-4">Nama Sekolah</th>
+                          <th className="py-3.5 px-4 w-32 text-center">Pertemuan Ke</th>
+                          <th className="py-3.5 px-4 w-36">Tanggal Jurnal</th>
+                          <th className="py-3.5 px-4">Deskripsi Pembahasan / Rekomendasi</th>
+                          <th className="py-3.5 px-4 w-28 text-center">Status</th>
+                          <th className="py-3.5 px-4 text-center w-28 no-print">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reflections
+                          .filter(r => r.namaSekolah.toLowerCase().includes(searchQuery.toLowerCase()) || r.pertemuan.toString().includes(searchQuery))
+                          .map((r, index) => (
+                            <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition-all">
+                              <td className="py-4 px-4 font-semibold text-slate-500 text-center">{index + 1}</td>
+                              <td className="py-4 px-4 font-bold text-slate-800 text-sm">{r.namaSekolah}</td>
+                              <td className="py-4 px-4 text-center">
+                                <span className="bg-cyan-100 text-cyan-800 font-black text-xs px-2.5 py-0.5 rounded">{r.pertemuan}</span>
+                              </td>
+                              <td className="py-4 px-4 font-mono text-xs text-slate-600">{r.tanggal}</td>
+                              <td className="py-4 px-4 text-xs text-slate-600 max-w-sm" title={r.deskripsi}>{r.deskripsi}</td>
+                              <td className="py-4 px-4 text-center">
+                                <span className="bg-emerald-500 text-white text-[9px] font-black tracking-wider px-2 py-0.5 rounded uppercase">{r.status}</span>
+                              </td>
+                              <td className="py-4 px-4 text-center space-x-1.5 no-print">
+                                <button onClick={() => handleOpenModal("refleksi", r)} className="bg-amber-500 hover:bg-amber-600 text-white p-1.5 rounded-lg transition-all" title="Edit Refleksi">
+                                  <i className="fa-solid fa-pen text-xs"></i>
+                                </button>
+                                <button onClick={() => handleDeleteData("refleksi", r.id)} className="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-lg transition-all" title="Hapus Refleksi">
+                                  <i className="fa-solid fa-trash text-xs"></i>
+                                </button>
+                              </td>
+                            </tr>
+                        ))}
+                        {reflections.filter(r => r.namaSekolah.toLowerCase().includes(searchQuery.toLowerCase()) || r.pertemuan.toString().includes(searchQuery)).length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="py-8 text-center text-slate-400">Tidak ada jurnal refleksi sekolah ditemukan.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </main>
+
+          {}
+          {/* ======================================================= */}
+          {/* DIALOG MODAL: DINAMIS FORM UNTUK SELURUH INPUT / EDIT */}
+          {/* ======================================================= */}
+          {isModalOpen && (
+            <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                
+                {/* Header Modal */}
+                <div className="bg-emerald-800 text-white px-6 py-4 flex justify-between items-center">
+                  <h3 className="font-bold text-lg flex items-center">
+                    <i className="fa-solid fa-file-signature mr-2.5"></i>
+                    {editData ? "Ubah Data" : "Tambah Data"} - {
+                      modalType === "sd_sekolah" ? "Sekolah Dasar (SD)" :
+                      modalType === "smp_sekolah" ? "Sekolah Menengah (SMP)" :
+                      modalType === "pkks" ? "Hasil Penilaian PKKS" : "Jurnal Refleksi Sekolah"
+                    }
+                  </h3>
+                  <button onClick={() => setIsModalOpen(false)} className="text-white hover:text-amber-300 transition-all text-xl">
+                    <i className="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+
+                {/* Form Isian Modal */}
+                <form onSubmit={handleSaveData} className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar text-sm">
+                  
+                  {/* --- A. FORM UNTUK DATA SEKOLAH (SD & SMP) --- */}
+                  {(modalType === "sd_sekolah" || modalType === "smp_sekolah") && (
+                    <div className="space-y-6">
+                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4 text-xs uppercase tracking-wider text-emerald-700">Profil & Lokasi Administrasi</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Nama Sekolah Binaan *</label>
+                            <input 
+                              type="text" required
+                              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                              placeholder="Contoh: SD Negeri 10 Palembang"
+                              value={formData.nama || ""}
+                              onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Status Satuan Pendidikan</label>
+                            <select 
+                              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                              value={formData.status || "NEGERI"}
+                              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                            >
+                              <option value="NEGERI">NEGERI</option>
+                              <option value="SWASTA">SWASTA</option>
+                            </select>
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Alamat Lengkap Sekolah</label>
+                            <input 
+                              type="text"
+                              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                              placeholder="Jalan, RT/RW, Kecamatan, Kota"
+                              value={formData.alamat || ""}
+                              onChange={(e) => setFormData({ ...formData, alamat: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Akreditasi</label>
+                            <select 
+                              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                              value={formData.akreditasi || "A"}
+                              onChange={(e) => setFormData({ ...formData, akreditasi: e.target.value })}
+                            >
+                              <option value="A">A</option>
+                              <option value="B">B</option>
+                              <option value="C">C</option>
+                              <option value="Belum Akreditasi">Belum Akreditasi</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">NPSN (Nomor Pokok Sekolah Nasional) *</label>
+                            <input 
+                              type="text" required maxLength="8"
+                              className="w-full border border-slate-300 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                              placeholder="8 digit nomor"
+                              value={formData.npsn || ""}
+                              onChange={(e) => setFormData({ ...formData, npsn: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Nama Kepala Sekolah</label>
+                            <input 
+                              type="text"
+                              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                              placeholder="Nama & Gelar Lengkap"
+                              value={formData.kepsek || ""}
+                              onChange={(e) => setFormData({ ...formData, kepsek: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">No. HP/WA Kepala Sekolah</label>
+                            <input 
+                              type="text"
+                              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                              placeholder="Contoh: 0812XXXXXXXX"
+                              value={formData.hpKepsek || ""}
+                              onChange={(e) => setFormData({ ...formData, hpKepsek: e.target.value })}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Alamat Email Sekolah</label>
+                            <input 
+                              type="email"
+                              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                              placeholder="sekolah@sch.id"
+                              value={formData.email || ""}
+                              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* --- FORM SUB-KOMPONEN: DATA MURID --- */}
+                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4 text-xs uppercase tracking-wider text-blue-700">Jumlah Siswa Per Kelas</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                          {modalType === "sd_sekolah" ? (
+                            <React.Fragment>
+                              {["1", "2", "3", "4", "5", "6"].map((kls) => (
+                                <React.Fragment key={kls}>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Kls {kls} (Laki-laki)</label>
+                                    <input 
+                                      type="number" min="0"
+                                      className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                      value={formData.murid?.[`L${kls}`] || 0}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value) || 0;
+                                        setFormData({ ...formData, murid: { ...formData.murid, [`L${kls}`]: val } });
+                                      }}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Kls {kls} (Perempuan)</label>
+                                    <input 
+                                      type="number" min="0"
+                                      className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                      value={formData.murid?.[`P${kls}`] || 0}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value) || 0;
+                                        setFormData({ ...formData, murid: { ...formData.murid, [`P${kls}`]: val } });
+                                      }}
+                                    />
+                                  </div>
+                                </React.Fragment>
+                              ))}
+                            </React.Fragment>
+                          ) : (
+                            <React.Fragment>
+                              {["7", "8", "9"].map((kls) => (
+                                <React.Fragment key={kls}>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Kls {kls} (Laki-laki)</label>
+                                    <input 
+                                      type="number" min="0"
+                                      className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                      value={formData.murid?.[`L${kls}`] || 0}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value) || 0;
+                                        setFormData({ ...formData, murid: { ...formData.murid, [`L${kls}`]: val } });
+                                      }}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Kls {kls} (Perempuan)</label>
+                                    <input 
+                                      type="number" min="0"
+                                      className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                      value={formData.murid?.[`P${kls}`] || 0}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value) || 0;
+                                        setFormData({ ...formData, murid: { ...formData.murid, [`P${kls}`]: val } });
+                                      }}
+                                    />
+                                  </div>
+                                </React.Fragment>
+                              ))}
+                            </React.Fragment>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* --- FORM SUB-KOMPONEN: DATA ROMBEL --- */}
+                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4 text-xs uppercase tracking-wider text-cyan-700">Rombongan Belajar (Rombel)</h4>
+                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
+                          {modalType === "sd_sekolah" ? (
+                            ["I", "II", "III", "IV", "V", "VI"].map((kls, idx) => (
+                              <div key={idx}>
+                                <label className="block text-xs font-semibold text-slate-600 mb-1">Kls {kls}</label>
+                                <input 
+                                  type="number" min="0"
+                                  className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                  value={formData.rombel?.[idx] || 0}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 0;
+                                    const updatedRombel = [...(formData.rombel || [0,0,0,0,0,0])];
+                                    updatedRombel[idx] = val;
+                                    setFormData({ ...formData, rombel: updatedRombel });
+                                  }}
+                                />
+                              </div>
+                            ))
+                          ) : (
+                            ["VII", "VIII", "IX"].map((kls, idx) => (
+                              <div key={idx}>
+                                <label className="block text-xs font-semibold text-slate-600 mb-1">Kls {kls}</label>
+                                <input 
+                                  type="number" min="0"
+                                  className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                  value={formData.rombel?.[idx] || 0}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 0;
+                                    const updatedRombel = [...(formData.rombel || [0,0,0])];
+                                    updatedRombel[idx] = val;
+                                    setFormData({ ...formData, rombel: updatedRombel });
+                                  }}
+                                />
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      {/* --- FORM SUB-KOMPONEN: DATA KEPEGAWAIAN GURU --- */}
+                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <h4 className="font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4 text-xs uppercase tracking-wider text-amber-700">Profil Status Guru & Tenaga Kependidikan</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">PNS / P3K</label>
+                            <input 
+                              type="number" min="0"
+                              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                              value={formData.guru?.pns || 0}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                setFormData({ ...formData, guru: { ...formData.guru, pns: val } });
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">Non-ASN</label>
+                            <input 
+                              type="number" min="0"
+                              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                              value={formData.guru?.nonAsn || 0}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                setFormData({ ...formData, guru: { ...formData.guru, nonAsn: val } });
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">Yayasan</label>
+                            <input 
+                              type="number" min="0"
+                              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                              value={formData.guru?.yayasan || 0}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                setFormData({ ...formData, guru: { ...formData.guru, yayasan: val } });
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">Tendik (Staf/TU)</label>
+                            <input 
+                              type="number" min="0"
+                              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                              value={formData.guru?.tendik || 0}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                setFormData({ ...formData, guru: { ...formData.guru, tendik: val } });
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">Kepala Sekolah</label>
+                            <input 
+                              type="number" min="0" max="1"
+                              className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-center focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-100 font-bold"
+                              value={formData.guru?.kepsek || 1}
+                              disabled
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- B. FORM UNTUK PKKS --- */}
+                  {modalType === "pkks" && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Pilih Sekolah Binaan *</label>
+                        <select required
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                          value={formData.sekolah || ""}
+                          onChange={(e) => setFormData({ ...formData, sekolah: e.target.value })}
+                        >
+                          <option value="">-- Silakan Pilih Sekolah --</option>
+                          {allSchoolNames.map((s, idx) => (
+                            <option key={idx} value={s.nama}>{`[${s.tipe}] ${s.nama}`}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Indikator Kinerja</label>
+                        <select 
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                          value={formData.indikator || "Aktif"}
+                          onChange={(e) => setFormData({ ...formData, indikator: e.target.value })}
+                        >
+                          <option value="Aktif">Aktif</option>
+                          <option value="Sangat Aktif">Sangat Aktif</option>
+                          <option value="Dalam Pembinaan">Dalam Pembinaan</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Hasil Nilai Observasi Akhir (Huruf)</label>
+                        <select 
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 font-bold text-amber-600 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                          value={formData.observasi || "A"}
+                          onChange={(e) => setFormData({ ...formData, observasi: e.target.value })}
+                        >
+                          <option value="A">A (Sangat Baik)</option>
+                          <option value="B">B (Baik)</option>
+                          <option value="C">C (Cukup)</option>
+                          <option value="D">D (Kurang)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Keterangan Evaluasi / Catatan Rekomendasi</label>
+                        <textarea 
+                          rows="4"
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                          placeholder="Tulis uraian catatan pengawasan di sini..."
+                          value={formData.keterangan || ""}
+                          onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
+                        ></textarea>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- C. FORM UNTUK REFLEKSI --- */}
+                  {modalType === "refleksi" && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Pilih Sekolah Binaan *</label>
+                        <select required
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                          value={formData.namaSekolah || ""}
+                          onChange={(e) => setFormData({ ...formData, namaSekolah: e.target.value })}
+                        >
+                          <option value="">-- Silakan Pilih Sekolah --</option>
+                          {allSchoolNames.map((s, idx) => (
+                            <option key={idx} value={s.nama}>{`[${s.tipe}] ${s.nama}`}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">Pertemuan Ke (Angka) *</label>
+                          <input 
+                            type="number" required min="1"
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            value={formData.pertemuan || 1}
+                            onChange={(e) => setFormData({ ...formData, pertemuan: parseInt(e.target.value) || 1 })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Pertemuan *</label>
+                          <input 
+                            type="date" required
+                            className="w-full border border-slate-300 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            value={formData.tanggal || ""}
+                            onChange={(e) => setFormData({ ...formData, tanggal: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Status Refleksi</label>
+                        <select 
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                          value={formData.status || "Aktif"}
+                          onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                        >
+                          <option value="Aktif">Aktif</option>
+                          <option value="Selesai">Selesai</option>
+                          <option value="Tertunda">Tertunda</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Uraian / Deskripsi Hasil Pertemuan</label>
+                        <textarea 
+                          rows="4"
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                          placeholder="Tulis ringkasan hasil diskusi refleksi di sini..."
+                          value={formData.deskripsi || ""}
+                          onChange={(e) => setFormData({ ...formData, deskripsi: e.target.value })}
+                        ></textarea>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tombol Aksi di Footer Modal */}
+                  <div className="bg-slate-50 -mx-6 -mb-6 p-4 mt-8 border-t border-slate-200 flex justify-end space-x-3">
+                    <button 
+                      type="button" 
+                      onClick={() => setIsModalOpen(false)}
+                      className="bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold px-4 py-2 rounded-lg text-xs transition-all shadow-sm"
+                    >
+                      Batal
+                    </button>
+                    <button 
+                      type="submit"
+                      className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-5 py-2 rounded-lg text-xs transition-all shadow-md flex items-center space-x-1.5"
+                    >
+                      <i className="fa-solid fa-cloud-arrow-up"></i>
+                      <span>Simpan Perubahan</span>
+                    </button>
+                  </div>
+
+                </form>
+
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    // Render Aplikasi React ke dalam DOM
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
